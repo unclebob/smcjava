@@ -1,0 +1,14 @@
+<project basedir="." default="jar">
+  <target name="compile" depends="clean">
+    <mkdir dir="build"/>
+    <javac srcdir="source/smc" destdir="build" excludes="**/*Test.java"/>
+  </target>
+
+  <target name="clean">
+    <delete dir="build"/>
+  </target>
+
+  <target name="jar" depends="compile">
+    <jar jarfile="build/smc.jar" basedir="build" includes="**/*.class"/>
+  </target>
+</project>

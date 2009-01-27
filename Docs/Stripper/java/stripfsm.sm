@@ -1,0 +1,51 @@
+FSMName StripFSM
+Context StripperContext
+Initial outside
+Version Test version 1.0
+FSMGenerator smc.generator.java.SMJavaGenerator
+
+Pragma Import  smc.stripper.StripperContext
+Pragma Package smc.stripper
+{
+outside
+  {
+	  Slash		startingSlash	{}
+	  Star		*			        PutChar
+	  EOL			*			        PutChar
+	  Other		*			        PutChar
+	}
+
+  startingSlash
+  {
+    Slash		secondSlash	    {}
+    Star		starAfterSlash	{}
+    EOL			outside			    {PutSlash PutChar}
+    Other		outside			    {PutSlash PutChar}
+  }
+
+  secondSlash : inComment
+  {
+    EOL			outside		PutChar
+  }
+
+  (inComment)
+  {
+    Other			*		{}
+    EOL       *   {}
+    Star      *   {}
+    Slash     *   {}
+  }
+
+  starAfterSlash : inComment
+  {
+    Star			startingStar	{}
+  }
+
+  startingStar : inComment 
+  {
+    Slash		outside			    {}
+    EOL			starAfterSlash	{}
+    Other   starAfterSlash  {}
+  }
+}
+

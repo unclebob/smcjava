@@ -1,0 +1,194 @@
+PARSER_BEGIN(SMParser)
+
+import smc.parser.iface.SMParserInterface;
+
+public class SMParser
+{
+    static SMParserInterface pi;
+    static int transactionAction = 1;
+    static int entryAction = 2;
+    static int exitAction = 3;
+}
+
+PARSER_END(SMParser)
+
+SKIP :
+{
+    " "
+  | "\t"
+  | "\n"
+  | "\r"
+  | "\r\n"
+  | <"//" (~["\n","\r"])*>
+}
+
+TOKEN [IGNORE_CASE]:
+{
+    < FSMNAME: "FSMName" >
+  | < CONTEXT: "Context" >
+  | < EXCEPTION: "Exception" >
+  | < INITIAL: "Initial" >
+  | < GENERATOR: "FSMGenerator" >
+  | < PRAGMA: "Pragma" (~["\n","\r"])* ("\n" | "\r" | "\r\n")>
+  | < VERSION: "Version" (~["\n","\r"])* ("\n" | "\r" | "\r\n")>
+}
+
+TOKEN [IGNORE_CASE]:
+{
+    < ID: ["a"-"z"] ( ["a"-"z","_","0"-"9"])* >
+  | < GENERATOR_ID:["a"-"z"] ( ["a"-"z","_","0"-"9","."])* > 
+}
+
+void parseFSM( SMParserInterface s ) :
+{}
+{
+    { pi = s; }
+    parseHeader() "{" parseStates() "}" <EOF>   
+    { 
+        pi.processFSM();
+    }
+}
+
+void parseHeader() :
+{  Token t; }
+{
+  ( 
+    <FSMNAME> t=<ID>
+    {
+        pi.setFSMName( t.image );
+    }
+  | <CONTEXT> t=<ID>
+    {
+        pi.setContextName( t.image );
+    }
+  | <EXCEPTION> t=<ID>
+    {
+        pi.setException( t.image );
+    }
+  | <INITIAL> t=<ID>
+    {
+        pi.setInitialState( t.image );
+    }
+  | <GENERATOR> ( t=<ID> | t=<GENERATOR_ID> )
+    {
+	pi.setFSMGenerator( t.image );
+    }
+  | t=<VERSION>
+    {
+        String v = t.image;	
+        try
+        {
+            v = v.substring(7);
+            v = v.trim();
+            pi.setVersion( v );
+        }
+        catch (StringIndexOutOfBoundsException e)
+        { pi.setVersion(""); }
+    }
+  | t=<PRAGMA>
+    {
+        String p = t.image;
+        try
+        {
+            p = p.substring(6);
+            p = p.trim();
+            pi.addPragma( p );
+        }
+        catch (StringIndexOutOfBoundsException e)
+        {}
+    }
+  )*
+  {}
+}
+
+void parseStates() :
+{}
+{
+  ( stateDefinition() (entryOrExitAction())* transitionSet() )*
+  {}
+}
+
+void stateDefinition() :
+{ 
+  Token state1 = null;
+  Token state2 = null;
+}
+{
+    "(" state1=<ID> ")" [(":" state2=<ID>)]
+    {
+        if( state2 == null )
+            pi.addSuperState( state1.image, state1.beginLine);
+        else
+            pi.addSuperSubState( state1.image, state2.image, state1.beginLine);
+    }
+  | state1=<ID> [(":" state2=<ID>)]
+    {
+        if( state2 == null )
+            pi.addState( state1.image, state1.beginLine); 
+        else
+	    pi.addSubState( state1.image, state2.image, state1.beginLine);
+    }
+}
+
+void transitionSet() :
+{}
+{
+   "{" (transition())* "}"
+}
+
+void transition() :
+{
+  Token event;
+  Token state;
+}
+{
+   ( LOOKAHEAD(2) 
+    event=<ID> state=<ID>
+    {
+        pi.addTransition( event.image, state.image, event.beginLine );
+    }
+  | event=<ID> "*"
+    {
+        pi.addInternalTransition( event.image, event.beginLine );
+    })
+  {
+      actionSet(transactionAction);
+  }
+}
+
+void entryOrExitAction() :
+{}
+{
+    "<" 
+    {
+        actionSet(entryAction);
+    }
+  | ">" 
+    {
+       actionSet(exitAction);
+    }
+}
+
+void actionSet(int type) :
+{}
+{
+    action(type)
+  | "{" (action(type))* "}"
+}
+
+void action(int type) :
+{
+    Token t;
+}
+{
+    t=<ID>
+    {
+	if( type == transactionAction )
+            pi.addAction(t.image, t.beginLine);
+        else if( type == entryAction )
+            pi.addEntryAction( t.image, t.beginLine);
+        else if( type == exitAction )
+            pi.addExitAction( t.image, t.beginLine);
+    }
+}
+

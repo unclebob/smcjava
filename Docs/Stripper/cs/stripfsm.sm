@@ -1,0 +1,51 @@
+FSMName StripFSM
+Context StripperContext
+Initial outside
+Version Test version 1.0
+FSMGenerator smc.generator.csharp.SMCSharpGenerator
+
+Pragma Header  stContext.h
+Pragma Namespace smc
+{
+outside <OutsideIn >OutsideOut
+        {
+	Slash			startingSlash	{}
+	Star			*			PutChar
+	EOL			*			PutChar
+	Other			*			PutChar
+	}
+
+startingSlash <StartingSlashIn >StartingSlashOut
+{
+	Slash			secondSlash		{}
+	Star			starAfterSlash	{}
+	EOL			outside			{PutSlash PutChar}
+	Other			outside			{PutSlash PutChar}
+}
+
+secondSlash : inComment <SecondSlashIn >SecondSlashOut
+{
+	EOL			outside		PutChar
+}
+
+(inComment) <InCommentIn >InCommentOut
+{
+	Other			*		{}
+        EOL                     *               {}
+        Star                    *               {}
+        Slash                   *               {}
+}
+
+starAfterSlash : inComment <StarAfterSlashIn >StarAfterSlashOut
+{
+	Star			startingStar	{}
+}
+
+startingStar : inComment <StartingStarIn >StartingStarOut
+{
+	Slash			outside			{}
+	EOL			starAfterSlash		{}
+	Other                   starAfterSlash          {}
+}
+}
+
